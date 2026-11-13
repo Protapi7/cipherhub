@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CipherLab – Custom Cryptographic Language Generator</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--ink:#14161f;--mute:#667;--line:#dfe2ee;--acc:#5b4bff;--acc2:#00b894;--warn:#d63031;--inp:#f0f2fa;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1018;--card:#171a26;--ink:#eceefa;--mute:#9aa0bd;--line:#2a2e44;--acc:#8f84ff;--acc2:#2ee6b6;--warn:#ff7675;--inp:#1f2336;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1018;--card:#171a26;--ink:#eceefa;--mute:#9aa0bd;--line:#2a2e44;--acc:#8f84ff;--acc2:#2ee6b6;--warn:#ff7675;--inp:#1f2336;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.mono,textarea,input,.out{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+header{max-width:1000px;margin:0 auto;padding:22px 16px 6px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{margin:0;font-size:24px;letter-spacing:-.5px}h1 span{color:var(--acc)}
+p.sub{max-width:1000px;margin:0 auto;padding:0 16px;color:var(--mute)}
+main{max-width:1000px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+h2{margin:0 0 10px;font-size:15px;text-transform:uppercase;letter-spacing:.8px;color:var(--mute)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{background:var(--inp);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:7px 12px;font:inherit;cursor:pointer}
+button:hover{border-color:var(--acc)}button.p{background:var(--acc);color:#fff;border-color:var(--acc)}
+select,input,textarea{background:var(--inp);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:7px 9px;font-size:14px}
+textarea{width:100%;min-height:110px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.two{grid-template-columns:1fr}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
+.cell{display:flex;align-items:center;gap:4px;background:var(--inp);border:1px solid var(--line);border-radius:9px;padding:3px 4px}
+.cell b{width:18px;text-align:center;color:var(--acc)}
+.cell input{width:100%;min-width:0;border:0;background:transparent;padding:4px;text-align:center}
+.cell.dup{border-color:var(--warn)}
+.out{white-space:pre-wrap;word-break:break-word;min-height:110px;background:var(--inp);border:1px solid var(--line);border-radius:9px;padding:9px;font-size:14px}
+.bars{display:flex;align-items:flex-end;gap:3px;height:90px;overflow-x:auto}
+.bar{flex:1;min-width:14px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:10px;color:var(--mute)}
+.bar i{display:block;width:100%;background:var(--acc2);border-radius:3px 3px 0 0;min-height:1px}
+.note{font-size:13px;color:var(--mute)}.warn{color:var(--warn)}
+label{font-size:13px;color:var(--mute)}
+</style>
+</head>
+<body>
+<header><h1>🔐 Cipher<span>Lab</span></h1><button id="theme">Theme</button></header>
+<p class="sub">Invent your own cryptographic language: map every letter and number to any letter, number, symbol or emoji, then encode and decode instantly.</p>
+<main>
+<section class="card">
+<h2>1 · Your key</h2>
+<div class="row" style="margin-bottom:10px">
+<select id="preset"></select>
+<span id="shiftWrap" class="row"><label>Shift</label><input id="shift" type="number" min="1" max="25" value="3" style="width:64px"></span>
+<button id="apply" class="p">Apply preset</button>
+<button id="rand">🎲 Random symbols</button>
+<button id="shuf">🔀 Shuffle letters</button>
+<button id="clear">Clear</button>
+</div>
+<div class="grid" id="grid"></div>
+<p class="note" id="warn"></p>
+<div class="row">
+<label>Token separator</label>
+<select id="sep"><option value="">None (single-character codes)</option><option value=" " selected>Space (multi-character codes)</option></select>
+<label><input type="checkbox" id="keepcase"> Mark uppercase with ^ </label>
+</div>
+</section>
+
+<section class="card two">
+<div>
+<h2>2 · Plain text</h2>
+<textarea id="plain" placeholder="Type a message to encode…">Meet me at 9 PM</textarea>
+<div class="row" style="margin-top:8px"><button id="cp1">Copy</button><button id="clr1">Clear</button></div>
+</div>
+<div>
+<h2>Coded text</h2>
+<textarea id="coded" placeholder="…or paste coded text here to decode"></textarea>
+<div class="row" style="margin-top:8px"><button id="cp2">Copy</button><button id="swap">⇅ Use coded as input</button></div>
+</div>
+</section>
+
+<section class="card two">
+<div><h2>Letter frequency (plain text)</h2><div class="bars" id="bars"></div><p class="note">Frequency analysis is how classic ciphers get cracked. Flat charts mean a stronger message.</p></div>
+<div><h2>Share &amp; backup key</h2>
+<textarea id="keyjson" style="min-height:90px" placeholder="Key JSON appears here. Paste a key and press Import."></textarea>
+<div class="row" style="margin-top:8px"><button id="exp">Export key</button><button id="imp">Import key</button><button id="cpk">Copy key</button></div>
+<p class="note">Your key is saved automatically in this browser. Anyone with the same key can decode your messages.</p></div>
+</section>
+
+<section class="card">
+<h2>Extras</h2>
+<div class="row">
+<button id="rev">Reverse coded text</button>
+<button id="ch">Split into 5-char groups</button>
+<button id="inv">Invert key (swap encode/decode)</button>
+</div>
+<p class="note" id="stats"></p>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const CH="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("");
+const AZ=CH.slice(0,26);
+const MORSE=".-,-...,-.-.,-..,.,..-.,--.,....,..,.---,-.-,.-..,--,-.,---,.--.,--.-,.-.,...,-,..-,...-,.--,-..-,-.--,--..,-----,.----,..---,...--,....-,.....,-....,--...,---..,----.".split(",");
+const SYM="!@#$%&*+=?<>~^§¶†‡∆∑∏√∞≈≠±µΩ¤¢£¥€©®™♠♣♥♦★☆☀☁☂☃♪♫⚑⚓⚔⚖✂✈✉✎✿❖➤".split("");
+const GREEK="ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ".split("");
+const KEEP=()=>Object.fromEntries(CH.map(c=>[c,c]));
+const shiftMap=n=>{const m=KEEP();AZ.forEach((c,i)=>m[c]=AZ[(i+n)%26]);return m};
+const P={
+"Caesar shift":()=>shiftMap(+$("shift").value||3),
+"Atbash (A↔Z)":()=>{const m=KEEP();AZ.forEach((c,i)=>m[c]=AZ[25-i]);return m},
+"ROT13":()=>shiftMap(13),
+"Letters → numbers (A=1)":()=>{const m=KEEP();AZ.forEach((c,i)=>m[c]=String(i+1));return m},
+"Letters → symbols":()=>{const m={};CH.forEach((c,i)=>m[c]=SYM[i]);return m},
+"Greek-style alphabet":()=>{const m=KEEP();AZ.slice(0,24).forEach((c,i)=>m[c]=GREEK[i]);return m},
+"Morse code":()=>{const m={};CH.forEach(c=>m[c]=MORSE[i]);return m},
+"Binary (8-bit)":()=>{const m={};CH.forEach(c=>m[c]=c.charCodeAt(0).toString(2).padStart(8,"0"));return m},
+"Hex":()=>{const m={};CH.forEach(c=>m[c]=c.charCodeAt(0).toString(16).toUpperCase());return m},
+"Leetspeak":()=>{const m=KEEP();Object.assign(m,{A:"4",E:"3",I:"1",O:"0",S:"5",T:"7",B:"8",G:"6",Z:"2"});return m},
+"Keyboard shift (QWERTY)":()=>{const r="QWERTYUIOPASDFGHJKLZXCVBNM",m=KEEP();AZ.forEach(c=>{const i=r.indexOf(c);m[c]=r[(i+1)%26]});return m},
+"Blank (build your own)":()=>Object.fromEntries(CH.map(c=>[c,""]))
+};
+let map=P["Letters → symbols"]();
+try{const s=localStorage.getItem("cipherlab-key");if(s)map=Object.assign(map,JSON.parse(s))}catch(e){}
+Object.keys(P).forEach(k=>$("preset").add(new Option(k,k)));
+$("preset").value="Letters → symbols";
+
+function buildGrid(){
+ $("grid").innerHTML="";
+ CH.forEach(c=>{
+  const d=document.createElement("div");d.className="cell";d.id="c_"+c;
+  d.innerHTML="<b>"+c+"</b>";
+  const i=document.createElement("input");i.value=map[c]||"";i.maxLength=12;
+  i.oninput=()=>{map[c]=i.value;run()};
+  d.appendChild(i);$("grid").appendChild(d);
+ });
+}
+function syncGrid(){CH.forEach(c=>{$("c_"+c).querySelector("input").value=map[c]||""})}
+function rev(){const r={};for(const c of CH){const t=map[c];if(t)(r[t]=r[t]||[]).push(c)}return r}
+function sep(){return $("sep").value}
+function encode(t){
+ const kc=$("keepcase").checked,s=sep(),out=[];
+ for(const ch of t){
+  const u=ch.toUpperCase();
+  if(ch===" "||ch==="\n"){out.push(ch==="\n"?"\n":(s?"/":" "));continue}
+  let tok=map[u]!=null&&map[u]!==""?map[u]:ch;
+  if(kc&&ch!==u&&/[A-Z]/.test(u)===false){}
+  if(kc&&/[A-Z]/.test(ch))tok="^"+tok;
+  out.push(tok);
+ }
+ return s?out.join(" ").replace(/ \n /g,"\n"):out.join("");
+}
+function decode(t){
+ const r=rev(),s=sep(),kc=$("keepcase").checked;let o="";
+ const look=x=>r[x]?r[x][0]:null;
+ if(s){
+  t.split("\n").forEach((line,li)=>{
+   if(li)o+="\n";
+   line.split(" ").filter(x=>x!=="").forEach((tok,i)=>{
+    if(tok==="/"){o+=" ";return}
+    let up=false;if(kc&&tok[0]==="^"){up=true;tok=tok.slice(1)}
+    const v=look(tok);let x=v!=null?v:tok;
+    o+=(kc&&!up&&v!=null)?x.toLowerCase():x;
+   });
+  });
+ }else{
+  const toks=Object.keys(r).sort((a,b)=>b.length-a.length);
+  for(let i=0;i<t.length;){
+   let up=false;
+   if(kc&&t[i]==="^"){up=true;i++}
+   const m=toks.find(k=>t.startsWith(k,i));
+   if(m){const x=r[m][0];o+=(kc&&!up)?x.toLowerCase():x;i+=m.length}
+   else{o+=t[i];i++}
+  }
+ }
+ return o;
+}
+let last="plain";
+function run(){
+ const dups=[],r=rev();Object.keys(r).forEach(t=>{if(r[t].length>1)dups.push(r[t])});
+ CH.forEach(c=>$("c_"+c).classList.toggle("dup",!!(map[c]&&r[map[c]].length>1)));
+ $("warn").className="note"+(dups.length?" warn":"");
+ $("warn").textContent=dups.length?"Duplicate codes: "+dups.map(d=>d.join("=")).join(", ")+". Decoding these is ambiguous.":"All codes are unique, so every message can be decoded.";
+ if(last==="plain")$("coded").value=encode($("plain").value);else $("plain").value=decode($("coded").value);
+ freq();
+ const p=$("plain").value,c=$("coded").value;
+ $("stats").textContent="Plain: "+p.length+" chars · Coded: "+c.length+" chars · Expansion: "+(p.length?(c.length/p.length).toFixed(2):"0")+"×";
+ $("shiftWrap").style.display=$("preset").value==="Caesar shift"?"flex":"none";
+ try{localStorage.setItem("cipherlab-key",JSON.stringify(map))}catch(e){}
+}
+function freq(){
+ const t=$("plain").value.toUpperCase(),n={};let mx=1;
+ AZ.forEach(c=>n[c]=0);for(const ch of t)if(n[ch]!=null)mx=Math.max(mx,++n[ch]);
+ $("bars").innerHTML=AZ.map(c=>"<div class='bar' title='"+c+": "+n[c]+"'><i style='height:"+(n[c]/mx*100*.78)+"%'></i>"+c+"</div>").join("");
+}
+function flash(b,t){const o=b.textContent;b.textContent=t;setTimeout(()=>b.textContent=o,1100)}
+async function copy(txt,b){try{await navigator.clipboard.writeText(txt);flash(b,"Copied ✓")}catch(e){flash(b,"Select & copy")}}
+$("plain").oninput=()=>{last="plain";run()};
+$("coded").oninput=()=>{last="coded";run()};
+$("sep").onchange=$("keepcase").onchange=run;
+$("apply").onclick=()=>{map=P[$("preset").value]();syncGrid();last="plain";run()};
+$("preset").onchange=run;$("shift").oninput=()=>{if($("preset").value==="Caesar shift"){map=P["Caesar shift"]();syncGrid();last="plain";run()}};
+$("rand").onclick=()=>{const pool=[...SYM,..."ΩΣΔΨΞ"].sort(()=>Math.random()-.5);CH.forEach((c,i)=>map[c]=pool[i%pool.length]);syncGrid();last="plain";run()};
+$("shuf").onclick=()=>{const a=[...CH.slice(0,26)].sort(()=>Math.random()-.5),d=[...CH.slice(26)].sort(()=>Math.random()-.5);CH.slice(0,26).forEach((c,i)=>map[c]=a[i]);CH.slice(26).forEach((c,i)=>map[c]=d[i]);syncGrid();last="plain";run()};
+$("clear").onclick=()=>{map=P["Blank (build your own)"]();syncGrid();last="plain";run()};
+$("cp1").onclick=e=>copy($("plain").value,e.target);
+$("cp2").onclick=e=>copy($("coded").value,e.target);
+$("clr1").onclick=()=>{$("plain").value="";$("coded").value="";last="plain";run()};
+$("swap").onclick=()=>{$("plain").value=$("coded").value;last="plain";run()};
+$("exp").onclick=()=>{$("keyjson").value=JSON.stringify({map,sep:sep(),kc:$("keepcase").checked})};
+$("cpk").onclick=e=>{$("exp").click();copy($("keyjson").value,e.target)};
+$("imp").onclick=()=>{try{const k=JSON.parse($("keyjson").value);map=Object.assign(Object.fromEntries(CH.map(c=>[c,""])),k.map);if(k.sep!=null)$("sep").value=k.sep;$("keepcase").checked=!!k.kc;syncGrid();last="plain";run();flash($("imp"),"Imported ✓")}catch(e){flash($("imp"),"Invalid key")}};
+$("rev").onclick=()=>{$("coded").value=[...$("coded").value].reverse().join("");last="coded";run()};
+$("ch").onclick=()=>{$("coded").value=$("coded").value.replace(/\s+/g,"").replace(/(.{5})/g,"$1 ").trim();last="coded";$("sep").value="";run()};
+$("inv").onclick=()=>{const n={};for(const c of CH){const t=map[c];if(t&&t.length===1&&CH.includes(t.toUpperCase()))n[t.toUpperCase()]=c}CH.forEach(c=>{if(n[c]==null)n[c]=map[c]&&map[c].length===1&&CH.includes(map[c].toUpperCase())?c:""});map=Object.assign(Object.fromEntries(CH.map(c=>[c,""])),n);syncGrid();last="plain";run()};
+$("theme").onclick=()=>{const d=document.documentElement,dark=d.dataset.theme?d.dataset.theme==="dark":matchMedia("(prefers-color-scheme:dark)").matches;d.dataset.theme=dark?"light":"dark"};
+buildGrid();run();
+</script>
+</body>
+</html>
